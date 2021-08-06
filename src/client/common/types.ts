@@ -83,7 +83,6 @@ export enum ProductType {
 
 export enum Product {
     pytest = 1,
-    nosetest = 2,
     pylint = 3,
     flake8 = 4,
     pycodestyle = 5,
@@ -110,11 +109,6 @@ export enum Product {
     torchProfilerImportName = 26,
 }
 
-export enum ModuleNamePurpose {
-    install = 1,
-    run = 2,
-}
-
 export const IInstaller = Symbol('IInstaller');
 
 export interface IInstaller {
@@ -136,7 +130,7 @@ export interface IInstaller {
         semVerRequirement: string,
         resource?: InterpreterUri,
     ): Promise<ProductInstallStatus>;
-    translateProductToModuleName(product: Product, purpose: ModuleNamePurpose): string;
+    translateProductToModuleName(product: Product): string;
 }
 
 // TODO: Drop IPathUtils in favor of IFileSystemPathUtils.
@@ -555,6 +549,14 @@ export interface IInterpreterPathService {
     inspect(resource: Resource): InspectInterpreterSettingType;
     update(resource: Resource, configTarget: ConfigurationTarget, value: string | undefined): Promise<void>;
     copyOldInterpreterStorageValuesToNew(resource: Uri | undefined): Promise<void>;
+}
+
+/**
+ * Interface used to access current Interpreter Path
+ */
+export const IInterpreterPathProxyService = Symbol('IInterpreterPathProxyService');
+export interface IInterpreterPathProxyService {
+    get(resource: Resource): string;
 }
 
 export type DefaultLSType = LanguageServerType.Jedi | LanguageServerType.JediLSP | LanguageServerType.Node;

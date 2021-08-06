@@ -512,15 +512,12 @@ export class PythonSettings implements IPythonSettings {
             this.testing = testSettings;
             if (isTestExecution() && !this.testing) {
                 this.testing = {
-                    nosetestArgs: [],
                     pytestArgs: [],
                     unittestArgs: [],
                     promptToConfigure: true,
                     debugPort: 3000,
-                    nosetestsEnabled: false,
                     pytestEnabled: false,
                     unittestEnabled: false,
-                    nosetestPath: 'nosetests',
                     pytestPath: 'pytest',
                     autoTestDiscoverOnSaveEnabled: true,
                 } as ITestingSettings;
@@ -533,9 +530,6 @@ export class PythonSettings implements IPythonSettings {
             : {
                   promptToConfigure: true,
                   debugPort: 3000,
-                  nosetestArgs: [],
-                  nosetestPath: 'nosetest',
-                  nosetestsEnabled: false,
                   pytestArgs: [],
                   pytestEnabled: false,
                   pytestPath: 'pytest',
@@ -544,16 +538,11 @@ export class PythonSettings implements IPythonSettings {
                   autoTestDiscoverOnSaveEnabled: true,
               };
         this.testing.pytestPath = getAbsolutePath(systemVariables.resolveAny(this.testing.pytestPath), workspaceRoot);
-        this.testing.nosetestPath = getAbsolutePath(
-            systemVariables.resolveAny(this.testing.nosetestPath),
-            workspaceRoot,
-        );
         if (this.testing.cwd) {
             this.testing.cwd = getAbsolutePath(systemVariables.resolveAny(this.testing.cwd), workspaceRoot);
         }
 
         // Resolve any variables found in the test arguments.
-        this.testing.nosetestArgs = this.testing.nosetestArgs.map((arg) => systemVariables.resolveAny(arg));
         this.testing.pytestArgs = this.testing.pytestArgs.map((arg) => systemVariables.resolveAny(arg));
         this.testing.unittestArgs = this.testing.unittestArgs.map((arg) => systemVariables.resolveAny(arg));
 
@@ -679,18 +668,13 @@ export class PythonSettings implements IPythonSettings {
             const autoSelectedPythonInterpreter = this.interpreterAutoSelectionService.getAutoSelectedInterpreter(
                 this.workspaceRoot,
             );
-            if (inExperiment) {
-                if (autoSelectedPythonInterpreter && this.workspaceRoot) {
-                    this.pythonPath = autoSelectedPythonInterpreter.path;
+            if (autoSelectedPythonInterpreter) {
+                this.pythonPath = autoSelectedPythonInterpreter.path;
+                if (this.workspaceRoot) {
                     this.interpreterAutoSelectionService
                         .setWorkspaceInterpreter(this.workspaceRoot, autoSelectedPythonInterpreter)
                         .ignoreErrors();
                 }
-            } else if (autoSelectedPythonInterpreter && this.workspaceRoot) {
-                this.pythonPath = autoSelectedPythonInterpreter.path;
-                this.interpreterAutoSelectionService
-                    .setWorkspaceInterpreter(this.workspaceRoot, autoSelectedPythonInterpreter)
-                    .ignoreErrors();
             }
         }
         if (inExperiment && this.pythonPath === DEFAULT_INTERPRETER_SETTING) {

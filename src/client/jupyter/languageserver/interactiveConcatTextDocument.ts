@@ -38,11 +38,15 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
     }
 
     get lineCount(): number {
-        return this._lineCounts[0] + 1 + this._lineCounts[1];
+        return this._lineCounts[0] + this._lineCounts[1];
     }
 
     get languageId(): string {
         return this._input?.languageId ?? 'plaintext';
+    }
+
+    get isComposeDocumentsAllClosed(): boolean {
+        return !this._notebook.getCells().some((cell) => !cell.document.isClosed) && !!this._input?.isClosed;
     }
 
     constructor(private _notebook: NotebookDocument, private _selector: string, notebookApi: IVSCodeNotebook) {
@@ -60,9 +64,6 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
                 this._onDidChange.fire();
             }
         });
-
-        this._updateConcat();
-        this._updateInput();
 
         const counter = /Interactive-(\d+)\.interactive/.exec(this._notebook.uri.path);
         if (counter) {
@@ -86,6 +87,9 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
                 }
             });
         }
+
+        this._updateConcat();
+        this._updateInput();
     }
 
     private _updateConcat() {
@@ -94,15 +98,12 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
         for (let i = 0; i < this._notebook.cellCount; i += 1) {
             const cell = this._notebook.cellAt(i);
             if (score(cell.document, this._selector)) {
-                concatLineCnt += cell.document.lineCount + 1;
+                concatLineCnt += cell.document.lineCount;
                 concatTextLen += this._getDocumentTextLen(cell.document) + 1;
             }
         }
 
-        this._lineCounts = [
-            concatLineCnt > 0 ? concatLineCnt - 1 : 0, // NotebookConcatTextDocument.lineCount
-            this._lineCounts[1],
-        ];
+        this._lineCounts = [concatLineCnt, this._lineCounts[1]];
 
         this._textLen = [concatTextLen > 0 ? concatTextLen - 1 : 0, this._textLen[1]];
     }
@@ -122,9 +123,12 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
 
     getText(range?: Range): string {
         if (!range) {
-            let result = '';
-            result += `${this._concatTextDocument.getText()}\n${this._input?.getText() ?? ''}`;
-            return result;
+            if (this._lineCounts[0] === 0) {
+                // empty
+                return this._input?.getText() ?? '';
+            }
+
+            return `${this._concatTextDocument.getText()}\n${this._input?.getText() ?? ''}`;
         }
 
         if (range.isEmpty) {
@@ -194,9 +198,9 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
         const start = positionOrRange.start.line;
         if (start >= this._lineCounts[0]) {
             // this is the inputbox
-            const offset = Math.max(0, start - this._lineCounts[0] - 1);
+            const offset = start - this._lineCounts[0];
             const startPosition = new Position(offset, positionOrRange.start.character);
-            const endOffset = Math.max(0, positionOrRange.end.line - this._lineCounts[0] - 1);
+            const endOffset = positionOrRange.end.line - this._lineCounts[0];
             const endPosition = new Position(endOffset, positionOrRange.end.character);
 
             // TODO@rebornix !
@@ -226,14 +230,14 @@ export class InteractiveConcatTextDocument implements IConcatTextDocument {
     lineAt(posOrNumber: Position | number): TextLine {
         const position = typeof posOrNumber === 'number' ? new Position(posOrNumber, 0) : posOrNumber;
 
+        if (position.line >= this._lineCounts[0] && this._input) {
+            // this is the input box
+            return this._input?.lineAt(position.line - this._lineCounts[0]);
+        }
+
         // convert this position into a cell location
         // (we need the translated location, that's why we can't use getCellAtPosition)
         const location = this._concatTextDocument.locationAt(position);
-
-        // Get the cell at this location
-        if (location.uri.toString() === this._input?.uri.toString()) {
-            return this._input.lineAt(location.range.start);
-        }
 
         const cell = this._notebook.getCells().find((c) => c.document.uri.toString() === location.uri.toString());
         return cell!.document.lineAt(location.range.start);
